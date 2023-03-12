@@ -7,15 +7,16 @@ public class PlayerStatusManager : MonoBehaviour
 
     public Animator playerAnim;
     public PlayerStatus userStatus { get; private set; }
+    public PlayerStatus lastUserStatus { get; private set; }
 
     public void ChangeUserStatus(PlayerStatus newStatus)
     {
-        Debug.Log(string.Format("Old user status: {0}, new user status: {1}", userStatus, newStatus));
         if (userStatus == newStatus)
         {
             return;
         }
 
+        lastUserStatus = userStatus;
         userStatus = newStatus;
         playerAnim.SetInteger("userStatus", (int)userStatus);
     }
