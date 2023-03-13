@@ -10,6 +10,11 @@ public class PlayerController : MonoBehaviour
     }
 
     #region Variables
+    const int CollideNone = 0;
+    const int CollidePositive = 1;
+    const int CollideNegtive = 2;
+    const int CollideBoth = 3;
+
     [SerializeField] float runningSpeed = 10f;
     [SerializeField] float jumpingForce = 10f;
     [SerializeField] float wallJumpForce = 10f;
@@ -18,10 +23,10 @@ public class PlayerController : MonoBehaviour
     [SerializeField] float wallJumpInputColdSec = .3f;
     [SerializeField] PlayerStatusManager statusManager;
     [SerializeField] LayerMask groundLayerMask;
-    [SerializeField] Collider2D wallChecker;
-    [SerializeField, ReadOnlyAttributes] bool isGrounded;
-    [SerializeField, ReadOnlyAttributes] bool isTowardsWall;
-    [SerializeField, ReadOnlyAttributes] int isWallCollide;
+    [SerializeField] Collider2D airColl;
+    [SerializeField, ReadOnlyAttributes] int isVertColl;
+    [SerializeField, ReadOnlyAttributes] int isHoriColl;
+    [SerializeField, ReadOnlyAttributes] int isAirHoriColl;
 
     UserInput input = new();
     Rigidbody2D rb;
@@ -47,17 +52,20 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        Vector2 lastVel = rb.velocity;
         GatherInput();
+
         if (input.reload)
         {
             GameManager.instance.ReloadThisLevel();
         }
+
         DoCollideCheck();
+
         DecideUserStatus();
+
         ChangeUserFacing();
+
         MovePlayer();
-        MDebug.Log("status: {0}/{1}, velocity: {2}/{3}", lastUst, ust, lastVel, rb.velocity);
     }
 
     void GatherInput()
@@ -69,25 +77,24 @@ public class PlayerController : MonoBehaviour
 
     void DoCollideCheck()
     {
-        // TODO@k1 [IMPORTANT] make this part pure and move out to another class
-        isGrounded = GroundedCheck();
-        isTowardsWall = HeadingTowardsWallCheck(input.x);
-        isWallCollide = IsWallCollide();
+        isVertColl = VerticalCollideCheck();
+        isHoriColl = HorizontalCollideCheck();
+        isAirHoriColl = AirHorizontalCollideCheck(input.x);
     }
 
     void DecideUserStatus()
     {
-        PlayerStatus nextStatus = ust;
+        var nextStatus = ust;
 
-        if (isGrounded && (isTowardsWall || rb.velocity.x != 0))
+        if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
         {
             nextStatus = PlayerStatus.RUNNING;
         }
-        else if (isGrounded && rb.velocity.x == 0)
+        else if (IsGrounded() && rb.velocity.x == 0)
         {
             nextStatus = PlayerStatus.IDLE;
         }
-        else if (!isGrounded && ust != PlayerStatus.DOUBLE_JUMPING)
+        else if (!IsGrounded() && ust != PlayerStatus.DOUBLE_JUMPING)
         {
             if (rb.velocity.y >= 0)
             {
@@ -148,7 +155,7 @@ public class PlayerController : MonoBehaviour
     void PlayerWallJump()
     {
         rb.velocity = new Vector2(wallJumpForce, jumpingForce);
-        if (isWallCollide == 1)
+        if (isAirHoriColl == CollidePositive)
         {
             rb.velocity = new Vector2(-wallJumpForce, jumpingForce);
         }
@@ -160,7 +167,6 @@ public class PlayerController : MonoBehaviour
     {
         rb.velocity = new Vector2(runningSpeed * input.x, rb.velocity.y);
     }
-
     #endregion
 
     #region Check Status
@@ -176,7 +182,7 @@ public class PlayerController : MonoBehaviour
 
     bool CanWallJump()
     {
-        return isWallCollide != 0 && (CanDoubleJump() || ust == PlayerStatus.DOUBLE_JUMPING);
+        return isAirHoriColl != CollideNone && isAirHoriColl != CollideBoth && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING || ust == PlayerStatus.DOUBLE_JUMPING);
     }
 
     bool CanRun()
@@ -184,34 +190,85 @@ public class PlayerController : MonoBehaviour
         return ust != PlayerStatus.WALL_HANGING && !wallJumpFlag;
     }
 
+    bool IsGrounded()
+    {
+        return isVertColl == CollideNegtive || isVertColl == CollideBoth;
+    }
+
+    bool IsRunningTowardsWall()
+    {
+        return IsCollideAndInputSameDirection(isHoriColl, input.x);
+    }
+
+    bool IsCollideAndInputSameDirection(int collType, float direction)
+    {
+        if (Mathf.Approximately(direction, 0))
+        {
+            return false;
+        }
+
+        if (collType == CollideNone)
+        {
+            return false;
+        }
+
+        if (collType == CollideBoth)
+        {
+            return true;
+        }
+
+        return (collType == CollidePositive && direction > 0) || (collType == CollideNegtive && direction < 0);
+    }
     #endregion
 
     #region Collide Check
-    bool GroundedCheck()
+    int VerticalCollideCheck()
     {
-        return Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, groundDetectUnit, groundLayerMask);
+        int res = CollideNone;
+
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, groundDetectUnit, groundLayerMask))
+        {
+            res = CollidePositive;
+        }
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, groundDetectUnit, groundLayerMask))
+        {
+            res = (res == CollidePositive) ? CollideBoth : CollideNegtive;
+        }
+
+        return res;
+    }
+    int HorizontalCollideCheck()
+    {
+        int res = CollideNone;
+
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.right, wallDetectUnit, groundLayerMask))
+        {
+            res = CollidePositive;
+        }
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.left, wallDetectUnit, groundLayerMask))
+        {
+            res = (res == CollidePositive) ? CollideBoth : CollideNegtive;
+        }
+
+        return res;
+        
     }
 
-    bool HeadingTowardsWallCheck(float direction)
+    int AirHorizontalCollideCheck(float direction)
     {
-        return direction != 0 && Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.right * direction, wallDetectUnit, groundLayerMask);
-    }
+        
+        int res = CollideNone;
 
-    int IsWallCollide()
-    {
-        if (Physics2D.BoxCast(wallChecker.bounds.center, wallChecker.bounds.size, 0, Vector2.right, wallDetectUnit, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, wallDetectUnit, groundLayerMask))
         {
-            return 1;
+            res = CollidePositive;
         }
-        else if (Physics2D.BoxCast(wallChecker.bounds.center, wallChecker.bounds.size, 0, Vector2.left, wallDetectUnit, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, wallDetectUnit, groundLayerMask))
         {
-            return -1;
-        }
-        else
-        {
-            return 0;
+            res = (res == CollidePositive) ? CollideBoth : CollideNegtive;
         }
 
+        return res;
     }
     #endregion
 

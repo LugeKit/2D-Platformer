@@ -170,10 +170,10 @@ MonoBehaviour:
   groundLayerMask:
     serializedVersion: 2
     m_Bits: 64
-  wallChecker: {fileID: 5502860224407281530}
-  isGrounded: 0
-  isTowardsWall: 0
-  isWallCollide: 0
+  airColl: {fileID: 5502860224407281530}
+  isVertColl: 0
+  isHoriColl: 0
+  isAirHoriColl: 0
 --- !u!50 &3909197376582836292
 Rigidbody2D:
   serializedVersion: 4
