@@ -73,7 +73,7 @@ GameObject:
   - component: {fileID: 4477289320935602508}
   - component: {fileID: 19157710}
   - component: {fileID: -5810914380715820746}
-  m_Layer: 0
+  m_Layer: 7
   m_Name: Player
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -160,20 +160,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 798099cd10735784eb8e6112405ef1ca, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  runningSpeed: 10
-  jumpingForce: 15
-  wallJumpForce: 10
-  groundDetectUnit: 0.1
-  wallDetectUnit: 0.1
-  wallJumpInputColdSec: 0.2
-  statusManager: {fileID: -5810914380715820746}
+  data: {fileID: 11400000, guid: 706b668d8ef42824faf182593051154b, type: 2}
   groundLayerMask:
     serializedVersion: 2
     m_Bits: 64
   airColl: {fileID: 5502860224407281530}
-  isVertColl: 0
-  isHoriColl: 0
-  isAirHoriColl: 0
+  verticalColl: 0
+  horizontalColl: 0
+  airHorizontalColl: 0
+  coyoteTime: 0
+  lastPressedJumpTime: 0
 --- !u!50 &3909197376582836292
 Rigidbody2D:
   serializedVersion: 4
@@ -191,8 +187,8 @@ Rigidbody2D:
   m_AngularDrag: 0.05
   m_GravityScale: 3
   m_Material: {fileID: 0}
-  m_Interpolate: 0
-  m_SleepingMode: 1
+  m_Interpolate: 1
+  m_SleepingMode: 0
   m_CollisionDetection: 1
   m_Constraints: 4
 --- !u!61 &4477289320935602508

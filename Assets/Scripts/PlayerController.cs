@@ -6,35 +6,32 @@ public class PlayerController : MonoBehaviour
     {
         public float x;
         public bool jump;
-        public bool reload;
+    }
+
+    public enum CollisionType
+    {
+        None,
+        Positive,
+        Negtive,
+        Both
     }
 
     #region Variables
-    const int CollideNone = 0;
-    const int CollidePositive = 1;
-    const int CollideNegtive = 2;
-    const int CollideBoth = 3;
-
-    [SerializeField] float runningSpeed = 10f;
-    [SerializeField] float jumpingForce = 10f;
-    [SerializeField] float wallJumpForce = 10f;
-    [SerializeField] float groundDetectUnit = .1f;
-    [SerializeField] float wallDetectUnit = .1f;
-    [SerializeField] float wallJumpInputColdSec = .3f;
-    [SerializeField] PlayerStatusManager statusManager;
+    [SerializeField] PlayerData data;
     [SerializeField] LayerMask groundLayerMask;
     [SerializeField] Collider2D airColl;
-    [SerializeField, ReadOnlyAttributes] int isVertColl;
-    [SerializeField, ReadOnlyAttributes] int isHoriColl;
-    [SerializeField, ReadOnlyAttributes] int isAirHoriColl;
+    [SerializeField, ReadOnly] CollisionType verticalColl;
+    [SerializeField, ReadOnly] CollisionType horizontalColl;
+    [SerializeField, ReadOnly] CollisionType airHorizontalColl;
+    [SerializeField, ReadOnly] float coyoteTime;
+    [SerializeField, ReadOnly] float lastPressedJumpTime;
 
+    PlayerStatusManager stMgr;
     UserInput input = new();
     Rigidbody2D rb;
     Collider2D coll;
     SpriteRenderer sr;
-    PlayerStatus ust => statusManager.userStatus;
-    PlayerStatus lastUst => statusManager.lastUserStatus;
-    bool wallJumpFlag = false;
+    PlayerStatus ust => stMgr.userStatus;
     #endregion
 
     private void Awake()
@@ -42,44 +39,36 @@ public class PlayerController : MonoBehaviour
         rb = GetComponent<Rigidbody2D>();
         sr = GetComponent<SpriteRenderer>();
         coll = GetComponent<Collider2D>();
-    }
-
-    // Start is called before the first frame update
-    void Start()
-    {
+        stMgr = GetComponent<PlayerStatusManager>();
     }
 
     // Update is called once per frame
     void Update()
     {
         GatherInput();
-
-        if (input.reload)
-        {
-            GameManager.instance.ReloadThisLevel();
-        }
-
-        DoCollideCheck();
-
+        DoCollisionCheck();
         DecideUserStatus();
-
+        UpdateTimer();
         ChangeUserFacing();
+        PerformAction();
+    }
 
-        MovePlayer();
+    private void FixedUpdate()
+    {
+        if (CanRun())
+            PlayerRun();
     }
 
     void GatherInput()
     {
         input.x = Input.GetAxisRaw("Horizontal");
         input.jump = Input.GetKeyDown(KeyCode.Space);
-        input.reload = Input.GetKeyDown(KeyCode.R);
     }
 
-    void DoCollideCheck()
+    void DoCollisionCheck()
     {
-        isVertColl = VerticalCollideCheck();
-        isHoriColl = HorizontalCollideCheck();
-        isAirHoriColl = AirHorizontalCollideCheck(input.x);
+        verticalColl = VerticalCollideCheck();
+        horizontalColl = HorizontalCollideCheck();
     }
 
     void DecideUserStatus()
@@ -106,29 +95,31 @@ public class PlayerController : MonoBehaviour
             }
         }
 
-        statusManager.ChangeUserStatus(nextStatus);
+        stMgr.ChangeUserStatus(nextStatus);
     }
 
-    void MovePlayer()
+    void UpdateTimer()
     {
-        if (CanJump() && input.jump)
+        coyoteTime -= Time.deltaTime;
+        lastPressedJumpTime -= Time.deltaTime;
+
+        if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
+            coyoteTime = data.CoyoteTime;
+
+        if (input.jump)
+            lastPressedJumpTime = data.JumpBufferTime;
+    }
+
+    void PerformAction()
+    {
+        if (CanJump() && (input.jump || lastPressedJumpTime > 0))
         {
             PlayerJump();
-        }
-        else if (CanWallJump() && input.jump)
-        {
-            PlayerWallJump();
-            statusManager.ChangeUserStatus(PlayerStatus.DOUBLE_JUMPING);
         }
         else if (CanDoubleJump() && input.jump)
         {
             PlayerDoubleJump();
-            statusManager.ChangeUserStatus(PlayerStatus.DOUBLE_JUMPING);
-        }
-
-        if (CanRun())
-        {
-            PlayerRun();
+            stMgr.ChangeUserStatus(PlayerStatus.DOUBLE_JUMPING);
         }
     }
 
@@ -144,137 +135,103 @@ public class PlayerController : MonoBehaviour
     #region Player Movements
     void PlayerJump()
     {
-        rb.velocity = new Vector2(rb.velocity.x, jumpingForce);
+        rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
+        rb.AddForce(data.JumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
     void PlayerDoubleJump()
     {
-        rb.velocity = new Vector2(rb.velocity.x, jumpingForce);
-    }
-
-    void PlayerWallJump()
-    {
-        rb.velocity = new Vector2(wallJumpForce, jumpingForce);
-        if (isAirHoriColl == CollidePositive)
-        {
-            rb.velocity = new Vector2(-wallJumpForce, jumpingForce);
-        }
-        wallJumpFlag = true;
-        Invoke(nameof(ResetWallJumpFlag), wallJumpInputColdSec);
+        rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
+        rb.AddForce(data.DoubleJumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
     void PlayerRun()
     {
-        rb.velocity = new Vector2(runningSpeed * input.x, rb.velocity.y);
+        var targetSpeed = data.MaxRunningSpeed * input.x;
+        var force = targetSpeed - rb.velocity.x;
+
+        if (Mathf.Sign(input.x) == Mathf.Sign(rb.velocity.x) && Mathf.Abs(rb.velocity.x) > Mathf.Abs(data.MaxRunningSpeed))
+            // If current velocity is faster than max velocity and user's input has same direction, I don't want to slow player down
+            return;
+
+        rb.AddForce(force * data.RunningAcceleration * Vector2.right, ForceMode2D.Force);
     }
     #endregion
 
-    #region Check Status
+    #region Check movement enabled or not
     bool CanJump()
     {
-        return ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING;
+        return data.EnableJump && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || (ust == PlayerStatus.FALLING && coyoteTime > 0));
     }
 
     bool CanDoubleJump()
     {
-        return ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING;
-    }
-
-    bool CanWallJump()
-    {
-        return isAirHoriColl != CollideNone && isAirHoriColl != CollideBoth && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING || ust == PlayerStatus.DOUBLE_JUMPING);
+        return data.EnableDoubleJump && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING);
     }
 
     bool CanRun()
     {
-        return ust != PlayerStatus.WALL_HANGING && !wallJumpFlag;
+        return ust != PlayerStatus.WALL_HANGING;
     }
 
     bool IsGrounded()
     {
-        return isVertColl == CollideNegtive || isVertColl == CollideBoth;
+        return verticalColl == CollisionType.Negtive || verticalColl == CollisionType.Both;
     }
 
     bool IsRunningTowardsWall()
     {
-        return IsCollideAndInputSameDirection(isHoriColl, input.x);
+        return IsCollideAndInputSameDirection(horizontalColl, input.x);
     }
 
-    bool IsCollideAndInputSameDirection(int collType, float direction)
+    bool IsCollideAndInputSameDirection(CollisionType collType, float direction)
     {
         if (Mathf.Approximately(direction, 0))
-        {
             return false;
-        }
 
-        if (collType == CollideNone)
-        {
+        if (collType == CollisionType.None)
             return false;
-        }
 
-        if (collType == CollideBoth)
-        {
+        if (collType == CollisionType.Both)
             return true;
-        }
 
-        return (collType == CollidePositive && direction > 0) || (collType == CollideNegtive && direction < 0);
+        return (collType == CollisionType.Positive && direction > 0) || (collType == CollisionType.Negtive && direction < 0);
     }
     #endregion
 
     #region Collide Check
-    int VerticalCollideCheck()
+    CollisionType VerticalCollideCheck()
     {
-        int res = CollideNone;
+        var res = CollisionType.None;
 
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, groundDetectUnit, groundLayerMask))
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, data.CollisionDetectDistance.y, groundLayerMask))
         {
-            res = CollidePositive;
+            res = CollisionType.Positive;
         }
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, groundDetectUnit, groundLayerMask))
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, data.CollisionDetectDistance.y, groundLayerMask))
         {
-            res = (res == CollidePositive) ? CollideBoth : CollideNegtive;
+            res = (res == CollisionType.Positive) ? CollisionType.Both : CollisionType.Negtive;
         }
 
         return res;
     }
-    int HorizontalCollideCheck()
+    CollisionType HorizontalCollideCheck()
     {
-        int res = CollideNone;
+        var res = CollisionType.None;
 
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.right, wallDetectUnit, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, data.CollisionDetectDistance.x, groundLayerMask))
         {
-            res = CollidePositive;
+            res = CollisionType.Positive;
         }
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.left, wallDetectUnit, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, data.CollisionDetectDistance.x, groundLayerMask))
         {
-            res = (res == CollidePositive) ? CollideBoth : CollideNegtive;
+            res = (res == CollisionType.Positive) ? CollisionType.Both : CollisionType.Negtive;
         }
 
         return res;
-        
+
     }
 
-    int AirHorizontalCollideCheck(float direction)
-    {
-        
-        int res = CollideNone;
-
-        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, wallDetectUnit, groundLayerMask))
-        {
-            res = CollidePositive;
-        }
-        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, wallDetectUnit, groundLayerMask))
-        {
-            res = (res == CollidePositive) ? CollideBoth : CollideNegtive;
-        }
-
-        return res;
-    }
     #endregion
-
-    void ResetWallJumpFlag()
-    {
-        wallJumpFlag = false;
-    }
 }
 
