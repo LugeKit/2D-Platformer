@@ -10,7 +10,8 @@ public class PlayerData : ScriptableObject
 
     [Header("Run")]
     public float MaxRunningSpeed;
-    public float RunningAcceleration;
+    public float AccelerationForce;
+    public float HorizontalFriction;
 
     [Space(20)]
 

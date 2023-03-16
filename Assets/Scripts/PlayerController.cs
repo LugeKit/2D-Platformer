@@ -45,6 +45,7 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
+        SimulateFriction();
         GatherInput();
         DoCollisionCheck();
         DecideUserStatus();
@@ -53,10 +54,20 @@ public class PlayerController : MonoBehaviour
         PerformAction();
     }
 
-    private void FixedUpdate()
+    void SimulateFriction()
     {
-        if (CanRun())
-            PlayerRun();
+        var currVelX = rb.velocity.x;
+        var decelerationForce = data.HorizontalFriction * Physics2D.gravity.y * Mathf.Sign(currVelX);
+        MDebug.Log("decelerationForce: {0}", decelerationForce);
+        var finalVelX = currVelX + decelerationForce * Time.deltaTime / rb.mass;
+
+        if (Mathf.Sign(currVelX) == Mathf.Sign(finalVelX))
+        {
+            rb.velocity = new Vector2(finalVelX, rb.velocity.y);
+            return;
+        }
+
+        rb.velocity = new Vector2(0, rb.velocity.y);
     }
 
     void GatherInput()
@@ -76,24 +87,14 @@ public class PlayerController : MonoBehaviour
         var nextStatus = ust;
 
         if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
-        {
             nextStatus = PlayerStatus.RUNNING;
-        }
         else if (IsGrounded() && rb.velocity.x == 0)
-        {
             nextStatus = PlayerStatus.IDLE;
-        }
         else if (!IsGrounded() && ust != PlayerStatus.DOUBLE_JUMPING)
-        {
             if (rb.velocity.y >= 0)
-            {
                 nextStatus = PlayerStatus.RISING;
-            }
             else
-            {
                 nextStatus = PlayerStatus.FALLING;
-            }
-        }
 
         stMgr.ChangeUserStatus(nextStatus);
     }
@@ -121,6 +122,9 @@ public class PlayerController : MonoBehaviour
             PlayerDoubleJump();
             stMgr.ChangeUserStatus(PlayerStatus.DOUBLE_JUMPING);
         }
+
+        if (CanRun())
+            PlayerRun();
     }
 
     void ChangeUserFacing()
@@ -147,14 +151,22 @@ public class PlayerController : MonoBehaviour
 
     void PlayerRun()
     {
-        var targetSpeed = data.MaxRunningSpeed * input.x;
-        var force = targetSpeed - rb.velocity.x;
-
-        if (Mathf.Sign(input.x) == Mathf.Sign(rb.velocity.x) && Mathf.Abs(rb.velocity.x) > Mathf.Abs(data.MaxRunningSpeed))
-            // If current velocity is faster than max velocity and user's input has same direction, I don't want to slow player down
+        if (input.x == 0)
             return;
 
-        rb.AddForce(force * data.RunningAcceleration * Vector2.right, ForceMode2D.Force);
+        var accelerationForce = input.x * data.AccelerationForce;
+        var force = accelerationForce * Time.deltaTime;
+        var expectedXSpeed = data.MaxRunningSpeed * input.x;
+
+        var currVelX = rb.velocity.x;
+        var finalVelX = currVelX + force / rb.mass;
+        if (Mathf.Sign(currVelX) == Mathf.Sign(expectedXSpeed) && Mathf.Abs(finalVelX) > Mathf.Abs(expectedXSpeed))
+        {
+            rb.velocity = new Vector2(expectedXSpeed, rb.velocity.y);
+            return;
+        }
+        
+        rb.AddForce(force * Vector2.right, ForceMode2D.Impulse);
     }
     #endregion
 
@@ -181,21 +193,16 @@ public class PlayerController : MonoBehaviour
 
     bool IsRunningTowardsWall()
     {
-        return IsCollideAndInputSameDirection(horizontalColl, input.x);
-    }
-
-    bool IsCollideAndInputSameDirection(CollisionType collType, float direction)
-    {
-        if (Mathf.Approximately(direction, 0))
+        if (input.x == 0)
             return false;
 
-        if (collType == CollisionType.None)
+        if (horizontalColl == CollisionType.None)
             return false;
 
-        if (collType == CollisionType.Both)
+        if (horizontalColl == CollisionType.Both)
             return true;
 
-        return (collType == CollisionType.Positive && direction > 0) || (collType == CollisionType.Negtive && direction < 0);
+        return (horizontalColl == CollisionType.Positive && input.x > 0) || (horizontalColl == CollisionType.Negtive && input.x < 0);
     }
     #endregion
 
@@ -231,7 +238,6 @@ public class PlayerController : MonoBehaviour
         return res;
 
     }
-
     #endregion
 }
 

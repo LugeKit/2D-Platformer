@@ -7,7 +7,7 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager instance;
 
-    private void Awake()
+    void Awake()
     {
         if (instance == null)
         {
@@ -20,7 +20,13 @@ public class GameManager : MonoBehaviour
 
     }
 
-    public void ReloadThisLevel()
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+            ReloadThisLevel();
+    }
+
+    void ReloadThisLevel()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }

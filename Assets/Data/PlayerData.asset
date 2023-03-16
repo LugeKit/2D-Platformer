@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   CollisionDetectDistance: {x: 0.1, y: 0.1}
   MaxRunningSpeed: 10
-  RunningAcceleration: 10
+  RunningAcceleration: 15
   EnableJump: 1
   JumpForce: 14
   CoyoteTime: 0.5
