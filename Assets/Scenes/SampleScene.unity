@@ -123,6 +123,16 @@ NavMeshSettings:
     debug:
       m_Flags: 0
   m_NavMeshData: {fileID: 0}
+--- !u!1 &442015177 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8881476922010360571, guid: de40b46deed73ac41983f3d535001ee7, type: 3}
+  m_PrefabInstance: {fileID: 2040631401}
+  m_PrefabAsset: {fileID: 0}
+--- !u!50 &442015181 stripped
+Rigidbody2D:
+  m_CorrespondingSourceObject: {fileID: 3909197376582836292, guid: de40b46deed73ac41983f3d535001ee7, type: 3}
+  m_PrefabInstance: {fileID: 2040631401}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &519420028
 GameObject:
   m_ObjectHideFlags: 0
@@ -134,6 +144,7 @@ GameObject:
   - component: {fileID: 519420032}
   - component: {fileID: 519420031}
   - component: {fileID: 519420029}
+  - component: {fileID: 519420033}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -207,6 +218,19 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &519420033
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 519420028}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 026c228fde31831438eec5ea7f9325d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  followed: {fileID: 442015177}
 --- !u!1 &1394199742
 GameObject:
   m_ObjectHideFlags: 0
@@ -303,6 +327,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3909197376582836292, guid: de40b46deed73ac41983f3d535001ee7, type: 3}
+      propertyPath: m_GravityScale
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 8881476922010360571, guid: de40b46deed73ac41983f3d535001ee7, type: 3}
       propertyPath: m_Name
       value: Player
@@ -338,6 +366,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b2ddbc6c14bc2d04280c053c5686c959, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  suddenForce: {x: 50, y: 0}
+  player: {fileID: 442015181}
 --- !u!4 &2104849445
 Transform:
   m_ObjectHideFlags: 0

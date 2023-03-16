@@ -58,7 +58,6 @@ public class PlayerController : MonoBehaviour
     {
         var currVelX = rb.velocity.x;
         var decelerationForce = data.HorizontalFriction * Physics2D.gravity.y * Mathf.Sign(currVelX);
-        MDebug.Log("decelerationForce: {0}", decelerationForce);
         var finalVelX = currVelX + decelerationForce * Time.deltaTime / rb.mass;
 
         if (Mathf.Sign(currVelX) == Mathf.Sign(finalVelX))
@@ -160,13 +159,21 @@ public class PlayerController : MonoBehaviour
 
         var currVelX = rb.velocity.x;
         var finalVelX = currVelX + force / rb.mass;
-        if (Mathf.Sign(currVelX) == Mathf.Sign(expectedXSpeed) && Mathf.Abs(finalVelX) > Mathf.Abs(expectedXSpeed))
+
+        if (Mathf.Sign(currVelX) == Mathf.Sign(expectedXSpeed) && Mathf.Abs(currVelX) > Mathf.Abs(expectedXSpeed))
+        {
+            return;
+        }
+        else if (Mathf.Sign(currVelX) == Mathf.Sign(expectedXSpeed) && Mathf.Abs(finalVelX) > Mathf.Abs(expectedXSpeed))
         {
             rb.velocity = new Vector2(expectedXSpeed, rb.velocity.y);
             return;
         }
+        else
+        {
+            rb.AddForce(force * Vector2.right, ForceMode2D.Impulse);
+        }
         
-        rb.AddForce(force * Vector2.right, ForceMode2D.Impulse);
     }
     #endregion
 

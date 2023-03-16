@@ -1,33 +1,42 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
-    public static GameManager instance;
+    public Vector2 suddenForce;
 
-    void Awake()
+    [SerializeField] Rigidbody2D player;
+
+    bool inputR;
+    bool inputLS;
+
+    void Update()
     {
-        if (instance == null)
-        {
-            instance = this;
-        }
-        else
-        {
-            Destroy(this);
-        }
-
+        GatherInput();
+        if (inputR)
+            ReloadThisLevel();
     }
 
-    private void Update()
+    void LateUpdate()
     {
-        if (Input.GetKeyDown(KeyCode.R))
-            ReloadThisLevel();
+        if (inputLS)
+            AddSuddenForceToPlayer();
+    }
+
+    void GatherInput()
+    {
+        inputR = Input.GetKeyDown(KeyCode.R);
+        inputLS = Input.GetKeyDown(KeyCode.LeftShift);
     }
 
     void ReloadThisLevel()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
+
+    void AddSuddenForceToPlayer()
+    {
+        player.AddForce(new Vector2(suddenForce.x * Mathf.Sign(player.velocity.x), suddenForce.y * Mathf.Sign(player.velocity.y)), ForceMode2D.Impulse);
+    }
+
 }
