@@ -45,27 +45,32 @@ public class PlayerController : MonoBehaviour
     // Update is called once per frame
     void Update()
     {
-        SimulateFriction();
+        SimulateDrag();
         GatherInput();
         DoCollisionCheck();
-        DecideUserStatus();
         UpdateTimer();
         ChangeUserFacing();
         PerformAction();
     }
 
-    void SimulateFriction()
+    private void LateUpdate()
+    {
+        DecideUserStatus();
+    }
+
+    void SimulateDrag()
     {
         var currVelX = rb.velocity.x;
-        var decelerationForce = data.HorizontalFriction * Physics2D.gravity.y * Mathf.Sign(currVelX);
-        var finalVelX = currVelX + decelerationForce * Time.deltaTime / rb.mass;
+        var dragV = Mathf.Max(Mathf.Abs(currVelX), data.MinHorizontalDragVelocity);
+        var dragForce = -1 * Mathf.Sign(currVelX) * dragV * data.HorizontalDrag * Time.deltaTime;
+        var finalVelX = currVelX + dragForce / rb.mass;
 
-        if (Mathf.Sign(currVelX) == Mathf.Sign(finalVelX))
+
+        if (Mathf.Sign(finalVelX) == Mathf.Sign(currVelX))
         {
             rb.velocity = new Vector2(finalVelX, rb.velocity.y);
             return;
         }
-
         rb.velocity = new Vector2(0, rb.velocity.y);
     }
 
@@ -100,19 +105,20 @@ public class PlayerController : MonoBehaviour
 
     void UpdateTimer()
     {
+        // coyote time
         coyoteTime -= Time.deltaTime;
-        lastPressedJumpTime -= Time.deltaTime;
-
         if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
             coyoteTime = data.CoyoteTime;
 
+        // jump buffer time
+        lastPressedJumpTime -= Time.deltaTime;
         if (input.jump)
             lastPressedJumpTime = data.JumpBufferTime;
     }
 
     void PerformAction()
     {
-        if (CanJump() && (input.jump || lastPressedJumpTime > 0))
+        if (CanJump())
         {
             PlayerJump();
         }
@@ -150,37 +156,16 @@ public class PlayerController : MonoBehaviour
 
     void PlayerRun()
     {
-        if (input.x == 0)
-            return;
-
-        var accelerationForce = input.x * data.AccelerationForce;
-        var force = accelerationForce * Time.deltaTime;
-        var expectedXSpeed = data.MaxRunningSpeed * input.x;
-
-        var currVelX = rb.velocity.x;
-        var finalVelX = currVelX + force / rb.mass;
-
-        if (Mathf.Sign(currVelX) == Mathf.Sign(expectedXSpeed) && Mathf.Abs(currVelX) > Mathf.Abs(expectedXSpeed))
-        {
-            return;
-        }
-        else if (Mathf.Sign(currVelX) == Mathf.Sign(expectedXSpeed) && Mathf.Abs(finalVelX) > Mathf.Abs(expectedXSpeed))
-        {
-            rb.velocity = new Vector2(expectedXSpeed, rb.velocity.y);
-            return;
-        }
-        else
-        {
-            rb.AddForce(force * Vector2.right, ForceMode2D.Impulse);
-        }
-        
+        rb.AddForce(input.x * data.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
     }
     #endregion
 
     #region Check movement enabled or not
     bool CanJump()
     {
-        return data.EnableJump && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || (ust == PlayerStatus.FALLING && coyoteTime > 0));
+        return data.EnableJump
+            && (input.jump || lastPressedJumpTime > 0)
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || (ust == PlayerStatus.FALLING && coyoteTime > 0 && coyoteTime > lastPressedJumpTime));
     }
 
     bool CanDoubleJump()

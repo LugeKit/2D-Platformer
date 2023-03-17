@@ -6,15 +6,13 @@ public class PlayerStatusManager : MonoBehaviour
 {
 
     public Animator playerAnim;
-    public PlayerStatus userStatus { get; private set; }
+    [field: SerializeField, ReadOnly] public PlayerStatus userStatus { get; private set; }
     public PlayerStatus lastUserStatus { get; private set; }
 
     public void ChangeUserStatus(PlayerStatus newStatus)
     {
         if (userStatus == newStatus)
-        {
             return;
-        }
 
         lastUserStatus = userStatus;
         userStatus = newStatus;
