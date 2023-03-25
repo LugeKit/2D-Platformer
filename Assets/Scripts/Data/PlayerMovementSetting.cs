@@ -1,7 +1,7 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "PlayerData", menuName = "Data", order = 1)]
-public class PlayerData : ScriptableObject
+[CreateAssetMenu(fileName = "MovementSetting", menuName = "Data", order = 1)]
+public class PlayerMovementSetting : ScriptableObject
 {
     [Header("Collision")]
     public Vector2 CollisionDetectDistance;

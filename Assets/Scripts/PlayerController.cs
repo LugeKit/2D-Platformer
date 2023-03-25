@@ -19,7 +19,7 @@ public class PlayerController : MonoBehaviour
     // TODO@k1 implement jump cut and fast falling in the future
 
     #region Variables
-    [SerializeField] PlayerData data;
+    [SerializeField] PlayerMovementSetting movementSetting;
     [SerializeField] LayerMask groundLayerMask;
     [SerializeField] Collider2D airColl;
     [SerializeField, ReadOnly] CollisionType verticalColl;
@@ -63,8 +63,8 @@ public class PlayerController : MonoBehaviour
     void SimulateDrag()
     {
         var currVelX = rb.velocity.x;
-        var dragV = Mathf.Max(Mathf.Abs(currVelX), data.MinHorizontalDragVelocity);
-        var dragForce = -1 * Mathf.Sign(currVelX) * dragV * data.HorizontalDrag * Time.deltaTime;
+        var dragV = Mathf.Max(Mathf.Abs(currVelX), movementSetting.MinHorizontalDragVelocity);
+        var dragForce = -1 * Mathf.Sign(currVelX) * dragV * movementSetting.HorizontalDrag * Time.deltaTime;
         var finalVelX = currVelX + dragForce / rb.mass;
 
 
@@ -110,12 +110,12 @@ public class PlayerController : MonoBehaviour
         // coyote time
         coyoteTime -= Time.deltaTime;
         if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
-            coyoteTime = data.CoyoteTime;
+            coyoteTime = movementSetting.CoyoteTime;
 
         // jump buffer time
         lastPressedJumpTime -= Time.deltaTime;
         if (input.jump)
-            lastPressedJumpTime = data.JumpBufferTime;
+            lastPressedJumpTime = movementSetting.JumpBufferTime;
     }
 
     void PerformAction()
@@ -147,32 +147,32 @@ public class PlayerController : MonoBehaviour
     void PlayerJump()
     {
         rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
-        rb.AddForce(data.JumpForce * Vector2.up, ForceMode2D.Impulse);
+        rb.AddForce(movementSetting.JumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
     void PlayerDoubleJump()
     {
         rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
-        rb.AddForce(data.DoubleJumpForce * Vector2.up, ForceMode2D.Impulse);
+        rb.AddForce(movementSetting.DoubleJumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
     void PlayerRun()
     {
-        rb.AddForce(input.x * data.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
+        rb.AddForce(input.x * movementSetting.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
     }
     #endregion
 
     #region Check movement enabled or not
     bool CanJump()
     {
-        return data.EnableJump
+        return movementSetting.EnableJump
             && (input.jump || lastPressedJumpTime > 0)
             && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || (ust == PlayerStatus.FALLING && coyoteTime > 0 && coyoteTime > lastPressedJumpTime));
     }
 
     bool CanDoubleJump()
     {
-        return data.EnableDoubleJump && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING);
+        return movementSetting.EnableDoubleJump && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING);
     }
 
     bool CanRun()
@@ -205,11 +205,11 @@ public class PlayerController : MonoBehaviour
     {
         var res = CollisionType.None;
 
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, data.CollisionDetectDistance.y, groundLayerMask))
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, movementSetting.CollisionDetectDistance.y, groundLayerMask))
         {
             res = CollisionType.Positive;
         }
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, data.CollisionDetectDistance.y, groundLayerMask))
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, movementSetting.CollisionDetectDistance.y, groundLayerMask))
         {
             res = (res == CollisionType.Positive) ? CollisionType.Both : CollisionType.Negtive;
         }
@@ -220,11 +220,11 @@ public class PlayerController : MonoBehaviour
     {
         var res = CollisionType.None;
 
-        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, data.CollisionDetectDistance.x, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, movementSetting.CollisionDetectDistance.x, groundLayerMask))
         {
             res = CollisionType.Positive;
         }
-        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, data.CollisionDetectDistance.x, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, movementSetting.CollisionDetectDistance.x, groundLayerMask))
         {
             res = (res == CollisionType.Positive) ? CollisionType.Both : CollisionType.Negtive;
         }
