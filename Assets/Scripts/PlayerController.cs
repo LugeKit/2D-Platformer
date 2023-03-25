@@ -16,18 +16,20 @@ public class PlayerController : MonoBehaviour
         Both
     }
 
+    // TODO@k1 implement jump cut and fast falling in the future
+
     #region Variables
     [SerializeField] PlayerData data;
     [SerializeField] LayerMask groundLayerMask;
     [SerializeField] Collider2D airColl;
     [SerializeField, ReadOnly] CollisionType verticalColl;
     [SerializeField, ReadOnly] CollisionType horizontalColl;
-    [SerializeField, ReadOnly] CollisionType airHorizontalColl;
     [SerializeField, ReadOnly] float coyoteTime;
     [SerializeField, ReadOnly] float lastPressedJumpTime;
 
     PlayerStatusManager stMgr;
     UserInput input = new();
+    [SerializeField, ReadOnly] CollisionType airHorizontalColl;
     Rigidbody2D rb;
     Collider2D coll;
     SpriteRenderer sr;

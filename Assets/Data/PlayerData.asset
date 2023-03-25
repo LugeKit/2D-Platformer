@@ -13,14 +13,14 @@ MonoBehaviour:
   m_Name: PlayerData
   m_EditorClassIdentifier: 
   CollisionDetectDistance: {x: 0.1, y: 0.1}
-  MaxRunningSpeed: 10
-  AccelerationForce: 100
-  HorizontalFriction: 5
+  AccelerationForce: 200
+  HorizontalDrag: 20
+  MinHorizontalDragVelocity: 1
   EnableJump: 1
-  JumpForce: 14
-  CoyoteTime: 0.5
+  JumpForce: 18
+  CoyoteTime: 0.3
   JumpBufferTime: 0.2
   EnableDoubleJump: 1
-  DoubleJumpForce: 10
+  DoubleJumpForce: 16
   EnableWallJump: 0
   WallJumpForce: {x: 0, y: 0}
