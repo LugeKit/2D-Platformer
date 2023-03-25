@@ -13,6 +13,6 @@ MonoBehaviour:
   m_Name: ArmorGuyCombatSetting
   m_EditorClassIdentifier: 
   EnableDodge: 1
-  DodgeTime: 1
-  DodgeSpeed: 10
+  DodgeTime: 0.3
+  DodgeSpeed: 20
   EnableAttack: 0

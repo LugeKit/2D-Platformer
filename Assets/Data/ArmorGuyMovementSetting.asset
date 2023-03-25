@@ -13,14 +13,14 @@ MonoBehaviour:
   m_Name: ArmorGuyMovementSetting
   m_EditorClassIdentifier: 
   CollisionDetectDistance: {x: 0.1, y: 0.1}
-  AccelerationForce: 200
+  AccelerationForce: 400
   HorizontalDrag: 20
   MinHorizontalDragVelocity: 1
   EnableJump: 1
   JumpForce: 18
   CoyoteTime: 0.3
   JumpBufferTime: 0.2
-  EnableDoubleJump: 0
+  EnableDoubleJump: 1
   DoubleJumpForce: 16
   EnableWallJump: 0
   WallJumpForce: {x: 0, y: 0}
