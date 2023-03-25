@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
@@ -6,6 +7,7 @@ public class PlayerController : MonoBehaviour
     {
         public float x;
         public bool jump;
+        public bool dodge;
     }
 
     public enum CollisionType
@@ -20,6 +22,7 @@ public class PlayerController : MonoBehaviour
 
     #region Variables
     [SerializeField] PlayerMovementSetting movementSetting;
+    [SerializeField] PlayerCombatSetting combatSetting;
     [SerializeField] LayerMask groundLayerMask;
     [SerializeField] Collider2D airColl;
     [SerializeField, ReadOnly] CollisionType verticalColl;
@@ -34,6 +37,7 @@ public class PlayerController : MonoBehaviour
     Collider2D coll;
     SpriteRenderer sr;
     PlayerStatus ust => stMgr.userStatus;
+    float dodgeSpeed;
     #endregion
 
     private void Awake()
@@ -80,6 +84,7 @@ public class PlayerController : MonoBehaviour
     {
         input.x = Input.GetAxisRaw("Horizontal");
         input.jump = Input.GetKeyDown(KeyCode.Space);
+        input.dodge = Input.GetKeyDown(KeyCode.LeftShift);
     }
 
     void DoCollisionCheck()
@@ -92,7 +97,9 @@ public class PlayerController : MonoBehaviour
     {
         var nextStatus = ust;
 
-        if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
+        if (ust == PlayerStatus.DODGE)
+            nextStatus = PlayerStatus.DODGE;
+        else if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
             nextStatus = PlayerStatus.RUNNING;
         else if (IsGrounded() && rb.velocity.x == 0)
             nextStatus = PlayerStatus.IDLE;
@@ -120,6 +127,22 @@ public class PlayerController : MonoBehaviour
 
     void PerformAction()
     {
+        // Dodge first
+        if (CanDodge())
+        {
+            MDebug.Log("start dodge");
+            dodgeSpeed = Mathf.Sign(input.x) * combatSetting.DodgeSpeed;
+            stMgr.ChangeUserStatus(PlayerStatus.DODGE);
+            Invoke(nameof(PlayerDodgeResume), combatSetting.DodgeTime);
+        }
+
+        if (ust == PlayerStatus.DODGE)
+        {
+            rb.velocity = new Vector2(dodgeSpeed, rb.velocity.y);
+            // if player is dodging, cancel all inputs
+            return;
+        }
+
         if (CanJump())
         {
             PlayerJump();
@@ -150,6 +173,11 @@ public class PlayerController : MonoBehaviour
         rb.AddForce(movementSetting.JumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
+    void PlayerDodgeResume()
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+    }
+
     void PlayerDoubleJump()
     {
         rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
@@ -163,6 +191,14 @@ public class PlayerController : MonoBehaviour
     #endregion
 
     #region Check movement enabled or not
+    bool CanDodge()
+    {
+        return combatSetting.EnableDodge 
+            && input.dodge 
+            && input.x != 0
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING);
+    }
+
     bool CanJump()
     {
         return movementSetting.EnableJump

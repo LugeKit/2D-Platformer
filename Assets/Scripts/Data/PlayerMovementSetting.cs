@@ -1,6 +1,6 @@
 using UnityEngine;
 
-[CreateAssetMenu(fileName = "MovementSetting", menuName = "Data", order = 1)]
+[CreateAssetMenu(fileName = "MovementSetting", menuName = "MovementSetting", order = 1)]
 public class PlayerMovementSetting : ScriptableObject
 {
     [Header("Collision")]

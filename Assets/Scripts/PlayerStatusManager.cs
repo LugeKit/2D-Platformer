@@ -28,5 +28,6 @@ public enum PlayerStatus
     RISING,
     FALLING,
     DOUBLE_JUMPING,
-    WALL_HANGING
+    WALL_HANGING,
+    DODGE
 }
