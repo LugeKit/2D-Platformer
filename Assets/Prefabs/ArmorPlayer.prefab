@@ -103,6 +103,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   movementSetting: {fileID: 11400000, guid: 995c230d91d16bc499ed29b87ec7fdff, type: 2}
+  combatSetting: {fileID: 11400000, guid: df66a9eabf2c0b545b7264ac7a884639, type: 2}
   groundLayerMask:
     serializedVersion: 2
     m_Bits: 64

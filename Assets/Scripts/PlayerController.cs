@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class PlayerController : MonoBehaviour
@@ -8,6 +7,7 @@ public class PlayerController : MonoBehaviour
         public float x;
         public bool jump;
         public bool dodge;
+        public bool attack;
     }
 
     public enum CollisionType
@@ -85,6 +85,7 @@ public class PlayerController : MonoBehaviour
         input.x = Input.GetAxisRaw("Horizontal");
         input.jump = Input.GetKeyDown(KeyCode.Space);
         input.dodge = Input.GetKeyDown(KeyCode.LeftShift);
+        input.attack = Input.GetKeyDown(KeyCode.J);
     }
 
     void DoCollisionCheck()
@@ -130,18 +131,14 @@ public class PlayerController : MonoBehaviour
         // Dodge first
         if (CanDodge())
         {
-            MDebug.Log("start dodge");
             dodgeSpeed = Mathf.Sign(input.x) * combatSetting.DodgeSpeed;
             stMgr.ChangeUserStatus(PlayerStatus.DODGE);
             Invoke(nameof(PlayerDodgeResume), combatSetting.DodgeTime);
         }
 
         if (ust == PlayerStatus.DODGE)
-        {
+            // remove the effects of all drag/force/else
             rb.velocity = new Vector2(dodgeSpeed, rb.velocity.y);
-            // if player is dodging, cancel all inputs
-            return;
-        }
 
         if (CanJump())
         {
@@ -153,8 +150,8 @@ public class PlayerController : MonoBehaviour
             stMgr.ChangeUserStatus(PlayerStatus.DOUBLE_JUMPING);
         }
 
-        if (CanRun())
-            PlayerRun();
+        if (CanHorizontalMove())
+            PlayerHorizontalMove();
     }
 
     void ChangeUserFacing()
@@ -184,7 +181,7 @@ public class PlayerController : MonoBehaviour
         rb.AddForce(movementSetting.DoubleJumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
-    void PlayerRun()
+    void PlayerHorizontalMove()
     {
         rb.AddForce(input.x * movementSetting.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
     }
@@ -211,9 +208,10 @@ public class PlayerController : MonoBehaviour
         return movementSetting.EnableDoubleJump && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING);
     }
 
-    bool CanRun()
+    bool CanHorizontalMove()
     {
-        return ust != PlayerStatus.WALL_HANGING;
+        return input.x != 0
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING || ust == PlayerStatus.DOUBLE_JUMPING);
     }
 
     bool IsGrounded()
