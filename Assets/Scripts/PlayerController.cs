@@ -1,11 +1,15 @@
 using UnityEngine;
+using System.Collections;
 
-public class PlayerController : MonoBehaviour
+public class PlayerController : MonoBehaviour, IAttackee
 {
     class UserInput
     {
         public float x;
         public bool jump;
+        public bool dodge;
+        public bool attack;
+        public bool defense;
     }
 
     public enum CollisionType
@@ -19,7 +23,8 @@ public class PlayerController : MonoBehaviour
     // TODO@k1 implement jump cut and fast falling in the future
 
     #region Variables
-    [SerializeField] PlayerData data;
+    [SerializeField] PlayerMovementSetting movementSetting;
+    [SerializeField] PlayerCombatSetting combatSetting;
     [SerializeField] LayerMask groundLayerMask;
     [SerializeField] Collider2D airColl;
     [SerializeField, ReadOnly] CollisionType verticalColl;
@@ -29,11 +34,22 @@ public class PlayerController : MonoBehaviour
 
     PlayerStatusManager stMgr;
     UserInput input = new();
-    [SerializeField, ReadOnly] CollisionType airHorizontalColl;
     Rigidbody2D rb;
     Collider2D coll;
     SpriteRenderer sr;
     PlayerStatus ust => stMgr.userStatus;
+
+    // dodgeSpeed: use to keep the speed during dodging is constant
+    float dodgeSpeed;
+
+    // coroutine for resuming from attack state
+    Coroutine resumeFromAtk;
+    int attackIndex = -1;
+    float curAtkBeginTime = 0;
+
+    // defense related
+    float startDefenseTime;
+
     #endregion
 
     private void Awake()
@@ -51,7 +67,10 @@ public class PlayerController : MonoBehaviour
         GatherInput();
         DoCollisionCheck();
         UpdateTimer();
-        ChangeUserFacing();
+        
+        if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.RISING || ust == PlayerStatus.FALLING || ust == PlayerStatus.DOUBLE_JUMPING)
+            ChangeUserFacing();
+
         PerformAction();
     }
 
@@ -63,8 +82,8 @@ public class PlayerController : MonoBehaviour
     void SimulateDrag()
     {
         var currVelX = rb.velocity.x;
-        var dragV = Mathf.Max(Mathf.Abs(currVelX), data.MinHorizontalDragVelocity);
-        var dragForce = -1 * Mathf.Sign(currVelX) * dragV * data.HorizontalDrag * Time.deltaTime;
+        var dragV = Mathf.Max(Mathf.Abs(currVelX), movementSetting.MinHorizontalDragVelocity);
+        var dragForce = -1 * Mathf.Sign(currVelX) * dragV * movementSetting.HorizontalDrag * Time.deltaTime;
         var finalVelX = currVelX + dragForce / rb.mass;
 
 
@@ -80,6 +99,11 @@ public class PlayerController : MonoBehaviour
     {
         input.x = Input.GetAxisRaw("Horizontal");
         input.jump = Input.GetKeyDown(KeyCode.Space);
+        input.dodge = Input.GetKeyDown(KeyCode.LeftShift);
+        input.attack = Input.GetKeyDown(KeyCode.J);
+        input.defense = Input.GetKey(KeyCode.K);
+        if (Input.GetKeyDown(KeyCode.K))
+            startDefenseTime = 0;
     }
 
     void DoCollisionCheck()
@@ -92,7 +116,14 @@ public class PlayerController : MonoBehaviour
     {
         var nextStatus = ust;
 
-        if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
+        if (ust == PlayerStatus.DODGE 
+            || ust == PlayerStatus.ATTACK 
+            || ust == PlayerStatus.DEFENSE 
+            || ust == PlayerStatus.HURT
+            || ust == PlayerStatus.PERFECT_DEFENSE)
+            // these states is changed by input or event, not by velocity or collide
+            nextStatus = ust;
+        else if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
             nextStatus = PlayerStatus.RUNNING;
         else if (IsGrounded() && rb.velocity.x == 0)
             nextStatus = PlayerStatus.IDLE;
@@ -107,19 +138,54 @@ public class PlayerController : MonoBehaviour
 
     void UpdateTimer()
     {
-        // coyote time
+        curAtkBeginTime += Time.deltaTime;
+        startDefenseTime += Time.deltaTime;
+
         coyoteTime -= Time.deltaTime;
         if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
-            coyoteTime = data.CoyoteTime;
+            coyoteTime = movementSetting.CoyoteTime;
 
-        // jump buffer time
         lastPressedJumpTime -= Time.deltaTime;
         if (input.jump)
-            lastPressedJumpTime = data.JumpBufferTime;
+            lastPressedJumpTime = movementSetting.JumpBufferTime;
     }
 
     void PerformAction()
     {
+        // Change status when defense holding up. Maybe some problems here? If works just let it be.
+        if (ust == PlayerStatus.DEFENSE && !input.defense)
+            stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+
+        if (CanAttack())
+        {
+            var nextAtk = ProceedToNextAtk();
+
+            if (nextAtk != null)
+            {
+                // TODO@k1 this should check delay. Now the hitbox appears when the player hits attack instantly, which is not good.
+                PlayerAttackHitCheck(nextAtk);
+
+                curAtkBeginTime = 0;
+                stMgr.ChangeUserStatus(PlayerStatus.ATTACK);
+                stMgr.TriigerNextAttack(); // for animation transition
+                SetAttackResume(StartCoroutine(AttackResume(nextAtk.EndAttackDelaySec)));
+            }
+        }
+
+        if (CanDefense())
+            stMgr.ChangeUserStatus(PlayerStatus.DEFENSE);
+
+        if (CanDodge())
+        {
+            dodgeSpeed = Mathf.Sign(input.x) * combatSetting.DodgeSpeed;
+            stMgr.ChangeUserStatus(PlayerStatus.DODGE);
+            Invoke(nameof(PlayerDodgeResume), combatSetting.DodgeTime);
+        }
+
+        if (ust == PlayerStatus.DODGE)
+            // remove the effects of all drag/force/else
+            rb.velocity = new Vector2(dodgeSpeed, rb.velocity.y);
+
         if (CanJump())
         {
             PlayerJump();
@@ -130,8 +196,8 @@ public class PlayerController : MonoBehaviour
             stMgr.ChangeUserStatus(PlayerStatus.DOUBLE_JUMPING);
         }
 
-        if (CanRun())
-            PlayerRun();
+        if (CanHorizontalMove())
+            PlayerHorizontalMove();
     }
 
     void ChangeUserFacing()
@@ -147,37 +213,124 @@ public class PlayerController : MonoBehaviour
     void PlayerJump()
     {
         rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
-        rb.AddForce(data.JumpForce * Vector2.up, ForceMode2D.Impulse);
+        rb.AddForce(movementSetting.JumpForce * Vector2.up, ForceMode2D.Impulse);
+    }
+
+    void PlayerDodgeResume()
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.IDLE);
     }
 
     void PlayerDoubleJump()
     {
         rb.velocity = new Vector2(rb.velocity.x, 0); // set Vy to be 0 will make we jump the same height every time
-        rb.AddForce(data.DoubleJumpForce * Vector2.up, ForceMode2D.Impulse);
+        rb.AddForce(movementSetting.DoubleJumpForce * Vector2.up, ForceMode2D.Impulse);
     }
 
-    void PlayerRun()
+    void PlayerHorizontalMove()
     {
-        rb.AddForce(input.x * data.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
+        rb.AddForce(input.x * movementSetting.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
+    }
+
+    void PlayerAttackHitCheck(AttackElement e)
+    {
+        var hit = Physics2D.OverlapCircle(e.HitboxCenterOffset, e.HitboxRadius, combatSetting.EnemyLayer);
+        if (hit != null)
+            MDebug.Log("hit successfully");
+    }
+    AttackElement ProceedToNextAtk()
+    {
+        if (attackIndex == -1)
+        {
+            if (combatSetting.Attacks.Length <= 0)
+                return null;
+            attackIndex = 0;
+            return combatSetting.Attacks[0];
+        }
+
+        if (attackIndex < 0 || attackIndex >= combatSetting.Attacks.Length)
+        {
+            MDebug.Log("[Error] attackIndex out of bound. Current index: {0}, max index: {1}", attackIndex, combatSetting.Attacks.Length);
+            return null;
+        }
+
+        var curAtkEle = combatSetting.Attacks[attackIndex];
+        if (curAtkBeginTime <= curAtkEle.NextAttackDelaySec)
+            return null;
+
+        attackIndex++;
+        if (attackIndex == combatSetting.Attacks.Length)
+        {
+            attackIndex = -1;
+            return null;
+        }
+
+        return combatSetting.Attacks[attackIndex];
+    }
+
+    void PlayerHurt(float damage)
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.HURT);
+        Invoke(nameof(HurtRecover), combatSetting.HurtRecoverDelaySec);
+        MDebug.Log("Get damaged: {0}!", damage);
+    }
+
+    void HurtRecover()
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+    }
+
+    void SetAttackResume(Coroutine c)
+    {
+        if (resumeFromAtk != null)
+            StopCoroutine(resumeFromAtk);
+        resumeFromAtk = c;
+    }
+
+    IEnumerator AttackResume(float resumeTime)
+    {
+        yield return new WaitForSeconds(resumeTime);
+        stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+        attackIndex = -1;
     }
     #endregion
 
     #region Check movement enabled or not
+    bool CanDodge()
+    {
+        return combatSetting.EnableDodge 
+            && input.dodge 
+            && input.x != 0
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING);
+    }
+
     bool CanJump()
     {
-        return data.EnableJump
+        return movementSetting.EnableJump
             && (input.jump || lastPressedJumpTime > 0)
             && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || (ust == PlayerStatus.FALLING && coyoteTime > 0 && coyoteTime > lastPressedJumpTime));
     }
 
     bool CanDoubleJump()
     {
-        return data.EnableDoubleJump && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING);
+        return movementSetting.EnableDoubleJump && (ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING);
     }
 
-    bool CanRun()
+    bool CanHorizontalMove()
     {
-        return ust != PlayerStatus.WALL_HANGING;
+        return input.x != 0
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING || ust == PlayerStatus.DOUBLE_JUMPING);
+    }
+
+    bool CanAttack()
+    {
+        return input.attack && combatSetting.EnableAttack
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.ATTACK);
+    }
+
+    bool CanDefense()
+    {
+        return input.defense && combatSetting.EnableDefense && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING);
     }
 
     bool IsGrounded()
@@ -205,11 +358,11 @@ public class PlayerController : MonoBehaviour
     {
         var res = CollisionType.None;
 
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, data.CollisionDetectDistance.y, groundLayerMask))
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.up, movementSetting.CollisionDetectDistance.y, groundLayerMask))
         {
             res = CollisionType.Positive;
         }
-        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, data.CollisionDetectDistance.y, groundLayerMask))
+        if (Physics2D.BoxCast(coll.bounds.center, coll.bounds.size, 0, Vector2.down, movementSetting.CollisionDetectDistance.y, groundLayerMask))
         {
             res = (res == CollisionType.Positive) ? CollisionType.Both : CollisionType.Negtive;
         }
@@ -220,17 +373,48 @@ public class PlayerController : MonoBehaviour
     {
         var res = CollisionType.None;
 
-        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, data.CollisionDetectDistance.x, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.right, movementSetting.CollisionDetectDistance.x, groundLayerMask))
         {
             res = CollisionType.Positive;
         }
-        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, data.CollisionDetectDistance.x, groundLayerMask))
+        if (Physics2D.BoxCast(airColl.bounds.center, airColl.bounds.size, 0, Vector2.left, movementSetting.CollisionDetectDistance.x, groundLayerMask))
         {
             res = (res == CollisionType.Positive) ? CollisionType.Both : CollisionType.Negtive;
         }
 
         return res;
 
+    }
+
+    public void Hit(float damage)
+    {
+        if (ust == PlayerStatus.DEFENSE)
+        {
+            if (startDefenseTime < combatSetting.PerfectDefenseWindowSec)
+            {
+                stMgr.ChangeUserStatus(PlayerStatus.PERFECT_DEFENSE);
+                Invoke(nameof(PerfectDefenseResume), combatSetting.PerfectDefenseStuckSec);
+                return;
+            }
+
+            MDebug.Log("Attack defensed!");
+            return;
+        }
+
+        if (ust == PlayerStatus.PERFECT_DEFENSE)
+            return;
+
+        PlayerHurt(damage);
+    }
+
+    void PerfectDefenseResume()
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.DEFENSE);
+    }
+
+    public bool IsInvincible()
+    {
+        return ust == PlayerStatus.DODGE;
     }
     #endregion
 }

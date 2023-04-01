@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class PlayerStatusManager : MonoBehaviour
@@ -14,12 +12,16 @@ public class PlayerStatusManager : MonoBehaviour
         if (userStatus == newStatus)
             return;
 
+        MDebug.Log("Status changed, old: {0}, new: {1}", userStatus, newStatus);
         lastUserStatus = userStatus;
         userStatus = newStatus;
         playerAnim.SetInteger("userStatus", (int)userStatus);
     }
 
-
+    public void TriigerNextAttack()
+    {
+        playerAnim.SetTrigger("triggerAttack");
+    }
 }
 public enum PlayerStatus
 {
@@ -28,5 +30,10 @@ public enum PlayerStatus
     RISING,
     FALLING,
     DOUBLE_JUMPING,
-    WALL_HANGING
+    WALL_HANGING,
+    DODGE,
+    ATTACK,
+    DEFENSE,
+    PERFECT_DEFENSE,
+    HURT
 }

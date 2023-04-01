@@ -1,0 +1,36 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5487c3312df963d499db9c1c918238ac, type: 3}
+  m_Name: ArmorGuyCombatSetting
+  m_EditorClassIdentifier: 
+  EnableDodge: 1
+  DodgeTime: 0.3
+  DodgeSpeed: 20
+  EnableAttack: 1
+  EnemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  Attacks:
+  - HitboxCenterOffset: {x: 0.49, y: 0.1}
+    HitboxRadius: 0.5
+    HitboxDelaySec: 0
+    NextAttackDelaySec: 0.15
+    EndAttackDelaySec: 0.3
+  - HitboxCenterOffset: {x: 0.49, y: 0.1}
+    HitboxRadius: 0.5
+    HitboxDelaySec: 0
+    NextAttackDelaySec: 0
+    EndAttackDelaySec: 0.3
+  EnableDefense: 1
+  PerfectDefenseWindowSec: 0.3
+  PerfectDefenseStuckSec: 0.15
+  HurtRecoverDelaySec: 0.1

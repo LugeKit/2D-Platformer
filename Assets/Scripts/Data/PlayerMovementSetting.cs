@@ -1,0 +1,35 @@
+using UnityEngine;
+
+[CreateAssetMenu(fileName = "MovementSetting", menuName = "MovementSetting", order = 1)]
+public class PlayerMovementSetting : ScriptableObject
+{
+    [Header("Collision")]
+    public Vector2 CollisionDetectDistance;
+
+    [Space(20)]
+
+    [Header("Run")]
+    public float AccelerationForce;
+    public float HorizontalDrag;
+    public float MinHorizontalDragVelocity;
+
+    [Space(20)]
+
+    [Header("Jump")]
+    public bool EnableJump;
+    public float JumpForce;
+    public float CoyoteTime;
+    public float JumpBufferTime;
+
+    [Space(20)]
+
+    [Header("Double Jump")]
+    public bool EnableDoubleJump;
+    public float DoubleJumpForce;
+
+    [Space(20)]
+
+    [Header("Wall Jump")]
+    public bool EnableWallJump;
+    public Vector2 WallJumpForce;
+}
