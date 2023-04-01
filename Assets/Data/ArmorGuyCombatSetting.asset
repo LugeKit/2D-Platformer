@@ -15,4 +15,18 @@ MonoBehaviour:
   EnableDodge: 1
   DodgeTime: 0.3
   DodgeSpeed: 20
-  EnableAttack: 0
+  EnableAttack: 1
+  EnemyLayer:
+    serializedVersion: 2
+    m_Bits: 0
+  Attacks:
+  - HitboxCenterOffset: {x: 0.49, y: 0.1}
+    HitboxRadius: 0.5
+    HitboxDelaySec: 0
+    NextAttackDelaySec: 0.15
+    EndAttackDelaySec: 0.3
+  - HitboxCenterOffset: {x: 0.49, y: 0.1}
+    HitboxRadius: 0.5
+    HitboxDelaySec: 0
+    NextAttackDelaySec: 0
+    EndAttackDelaySec: 0.3

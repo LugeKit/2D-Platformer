@@ -1,4 +1,5 @@
 using UnityEngine;
+using System.Collections;
 
 public class PlayerController : MonoBehaviour
 {
@@ -32,12 +33,19 @@ public class PlayerController : MonoBehaviour
 
     PlayerStatusManager stMgr;
     UserInput input = new();
-    [SerializeField, ReadOnly] CollisionType airHorizontalColl;
     Rigidbody2D rb;
     Collider2D coll;
     SpriteRenderer sr;
     PlayerStatus ust => stMgr.userStatus;
+
+    // dodgeSpeed: use to keep the speed during dodging is constant
     float dodgeSpeed;
+
+    // coroutine for resuming from attack state
+    Coroutine resumeFromAtk;
+    int attackIndex = -1;
+    float curAtkBeginTime = 0;
+
     #endregion
 
     private void Awake()
@@ -55,7 +63,10 @@ public class PlayerController : MonoBehaviour
         GatherInput();
         DoCollisionCheck();
         UpdateTimer();
-        ChangeUserFacing();
+        
+        if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.RISING || ust == PlayerStatus.FALLING || ust == PlayerStatus.DOUBLE_JUMPING)
+            ChangeUserFacing();
+
         PerformAction();
     }
 
@@ -98,8 +109,9 @@ public class PlayerController : MonoBehaviour
     {
         var nextStatus = ust;
 
-        if (ust == PlayerStatus.DODGE)
-            nextStatus = PlayerStatus.DODGE;
+        if (ust == PlayerStatus.DODGE || ust == PlayerStatus.ATTACK)
+            // these states is changed by input or event, not by velocity or collide
+            nextStatus = ust;
         else if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
             nextStatus = PlayerStatus.RUNNING;
         else if (IsGrounded() && rb.velocity.x == 0)
@@ -115,6 +127,7 @@ public class PlayerController : MonoBehaviour
 
     void UpdateTimer()
     {
+        curAtkBeginTime += Time.deltaTime;
         // coyote time
         coyoteTime -= Time.deltaTime;
         if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
@@ -128,7 +141,22 @@ public class PlayerController : MonoBehaviour
 
     void PerformAction()
     {
-        // Dodge first
+        if (CanAttack())
+        {
+            var nextAtk = ProceedToNextAtk();
+
+            if (nextAtk != null)
+            {
+                // TODO@k1 this should check delay
+                PlayerAttackHitCheck(nextAtk);
+
+                curAtkBeginTime = 0;
+                stMgr.ChangeUserStatus(PlayerStatus.ATTACK);
+                stMgr.TriigerNextAttack(); // for animation transition
+                SetAttackResume(StartCoroutine(AttackResume(nextAtk.EndAttackDelaySec)));
+            }
+        }
+
         if (CanDodge())
         {
             dodgeSpeed = Mathf.Sign(input.x) * combatSetting.DodgeSpeed;
@@ -185,6 +213,27 @@ public class PlayerController : MonoBehaviour
     {
         rb.AddForce(input.x * movementSetting.AccelerationForce * Time.deltaTime * Vector2.right, ForceMode2D.Impulse);
     }
+
+    void PlayerAttackHitCheck(AttackElement e)
+    {
+        var hit = Physics2D.OverlapCircle(e.HitboxCenterOffset, e.HitboxRadius, combatSetting.EnemyLayer);
+        if (hit != null)
+            MDebug.Log("hit successfully");
+    }
+
+    void SetAttackResume(Coroutine c)
+    {
+        if (resumeFromAtk != null)
+            StopCoroutine(resumeFromAtk);
+        resumeFromAtk = c;
+    }
+
+    IEnumerator AttackResume(float resumeTime)
+    {
+        yield return new WaitForSeconds(resumeTime);
+        stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+        attackIndex = -1;
+    }
     #endregion
 
     #region Check movement enabled or not
@@ -212,6 +261,42 @@ public class PlayerController : MonoBehaviour
     {
         return input.x != 0
             && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.FALLING || ust == PlayerStatus.RISING || ust == PlayerStatus.DOUBLE_JUMPING);
+    }
+
+    bool CanAttack()
+    {
+        return input.attack
+            && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.ATTACK);
+    }
+
+    AttackElement ProceedToNextAtk()
+    {
+        if (attackIndex == -1)
+        {
+            if (combatSetting.Attacks.Length <= 0)
+                return null;
+            attackIndex = 0;
+            return combatSetting.Attacks[0];
+        }
+
+        if (attackIndex < 0 || attackIndex >= combatSetting.Attacks.Length)
+        {
+            MDebug.Log("[Error] attackIndex out of bound. Current index: {0}, max index: {1}", attackIndex, combatSetting.Attacks.Length);
+            return null;
+        }
+
+        var curAtkEle = combatSetting.Attacks[attackIndex];
+        if (curAtkBeginTime <= curAtkEle.NextAttackDelaySec)
+            return null;
+
+        attackIndex++;
+        if (attackIndex == combatSetting.Attacks.Length)
+        {
+            attackIndex = -1;
+            return null;
+        }
+
+        return combatSetting.Attacks[attackIndex];
     }
 
     bool IsGrounded()
