@@ -139,9 +139,7 @@ public class PlayerController : MonoBehaviour, IAttackee
     void UpdateTimer()
     {
         curAtkBeginTime += Time.deltaTime;
-
-        if (ust == PlayerStatus.DEFENSE)
-            startDefenseTime += Time.deltaTime;
+        startDefenseTime += Time.deltaTime;
 
         coyoteTime -= Time.deltaTime;
         if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
@@ -394,7 +392,6 @@ public class PlayerController : MonoBehaviour, IAttackee
         {
             if (startDefenseTime < combatSetting.PerfectDefenseWindowSec)
             {
-                stMgr.TriggerPerfectDefense();
                 stMgr.ChangeUserStatus(PlayerStatus.PERFECT_DEFENSE);
                 Invoke(nameof(PerfectDefenseResume), combatSetting.PerfectDefenseStuckSec);
                 return;
@@ -404,12 +401,20 @@ public class PlayerController : MonoBehaviour, IAttackee
             return;
         }
 
+        if (ust == PlayerStatus.PERFECT_DEFENSE)
+            return;
+
         PlayerHurt(damage);
     }
 
     void PerfectDefenseResume()
     {
         stMgr.ChangeUserStatus(PlayerStatus.DEFENSE);
+    }
+
+    public bool IsInvincible()
+    {
+        return ust == PlayerStatus.DODGE;
     }
     #endregion
 }

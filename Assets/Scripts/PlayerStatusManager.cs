@@ -12,6 +12,7 @@ public class PlayerStatusManager : MonoBehaviour
         if (userStatus == newStatus)
             return;
 
+        MDebug.Log("Status changed, old: {0}, new: {1}", userStatus, newStatus);
         lastUserStatus = userStatus;
         userStatus = newStatus;
         playerAnim.SetInteger("userStatus", (int)userStatus);
@@ -21,13 +22,6 @@ public class PlayerStatusManager : MonoBehaviour
     {
         playerAnim.SetTrigger("triggerAttack");
     }
-
-    public void TriggerPerfectDefense()
-    {
-        playerAnim.SetTrigger("triggerPerfectDefense");
-    }
-
-
 }
 public enum PlayerStatus
 {
