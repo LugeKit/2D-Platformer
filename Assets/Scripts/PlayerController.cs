@@ -376,6 +376,18 @@ public class PlayerController : MonoBehaviour, IAttackee
 
     public void Hit(float damage)
     {
+        if (ust == PlayerStatus.DEFENSE)
+        {
+            if (startDefenseTime < combatSetting.PerfectDefenseWindowSec)
+            {
+                stMgr.TriggerPerfectDefense();
+                return;
+            }
+
+            MDebug.Log("Attack defensed!");
+            return;
+        }
+
         MDebug.Log("Got hit! Damage: {0}", damage);
     }
     #endregion
