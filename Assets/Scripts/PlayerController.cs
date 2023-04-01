@@ -102,6 +102,8 @@ public class PlayerController : MonoBehaviour, IAttackee
         input.dodge = Input.GetKeyDown(KeyCode.LeftShift);
         input.attack = Input.GetKeyDown(KeyCode.J);
         input.defense = Input.GetKey(KeyCode.K);
+        if (Input.GetKeyDown(KeyCode.K))
+            startDefenseTime = 0;
     }
 
     void DoCollisionCheck()
@@ -114,7 +116,11 @@ public class PlayerController : MonoBehaviour, IAttackee
     {
         var nextStatus = ust;
 
-        if (ust == PlayerStatus.DODGE || ust == PlayerStatus.ATTACK || ust == PlayerStatus.DEFENSE)
+        if (ust == PlayerStatus.DODGE 
+            || ust == PlayerStatus.ATTACK 
+            || ust == PlayerStatus.DEFENSE 
+            || ust == PlayerStatus.HURT
+            || ust == PlayerStatus.PERFECT_DEFENSE)
             // these states is changed by input or event, not by velocity or collide
             nextStatus = ust;
         else if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
@@ -169,10 +175,7 @@ public class PlayerController : MonoBehaviour, IAttackee
         }
 
         if (CanDefense())
-        {
-            startDefenseTime = 0;
             stMgr.ChangeUserStatus(PlayerStatus.DEFENSE);
-        }
 
         if (CanDodge())
         {
@@ -237,6 +240,47 @@ public class PlayerController : MonoBehaviour, IAttackee
         if (hit != null)
             MDebug.Log("hit successfully");
     }
+    AttackElement ProceedToNextAtk()
+    {
+        if (attackIndex == -1)
+        {
+            if (combatSetting.Attacks.Length <= 0)
+                return null;
+            attackIndex = 0;
+            return combatSetting.Attacks[0];
+        }
+
+        if (attackIndex < 0 || attackIndex >= combatSetting.Attacks.Length)
+        {
+            MDebug.Log("[Error] attackIndex out of bound. Current index: {0}, max index: {1}", attackIndex, combatSetting.Attacks.Length);
+            return null;
+        }
+
+        var curAtkEle = combatSetting.Attacks[attackIndex];
+        if (curAtkBeginTime <= curAtkEle.NextAttackDelaySec)
+            return null;
+
+        attackIndex++;
+        if (attackIndex == combatSetting.Attacks.Length)
+        {
+            attackIndex = -1;
+            return null;
+        }
+
+        return combatSetting.Attacks[attackIndex];
+    }
+
+    void PlayerHurt(float damage)
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.HURT);
+        Invoke(nameof(HurtRecover), combatSetting.HurtRecoverDelaySec);
+        MDebug.Log("Get damaged: {0}!", damage);
+    }
+
+    void HurtRecover()
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+    }
 
     void SetAttackResume(Coroutine c)
     {
@@ -289,36 +333,6 @@ public class PlayerController : MonoBehaviour, IAttackee
     bool CanDefense()
     {
         return input.defense && combatSetting.EnableDefense && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING);
-    }
-
-    AttackElement ProceedToNextAtk()
-    {
-        if (attackIndex == -1)
-        {
-            if (combatSetting.Attacks.Length <= 0)
-                return null;
-            attackIndex = 0;
-            return combatSetting.Attacks[0];
-        }
-
-        if (attackIndex < 0 || attackIndex >= combatSetting.Attacks.Length)
-        {
-            MDebug.Log("[Error] attackIndex out of bound. Current index: {0}, max index: {1}", attackIndex, combatSetting.Attacks.Length);
-            return null;
-        }
-
-        var curAtkEle = combatSetting.Attacks[attackIndex];
-        if (curAtkBeginTime <= curAtkEle.NextAttackDelaySec)
-            return null;
-
-        attackIndex++;
-        if (attackIndex == combatSetting.Attacks.Length)
-        {
-            attackIndex = -1;
-            return null;
-        }
-
-        return combatSetting.Attacks[attackIndex];
     }
 
     bool IsGrounded()
@@ -381,6 +395,8 @@ public class PlayerController : MonoBehaviour, IAttackee
             if (startDefenseTime < combatSetting.PerfectDefenseWindowSec)
             {
                 stMgr.TriggerPerfectDefense();
+                stMgr.ChangeUserStatus(PlayerStatus.PERFECT_DEFENSE);
+                Invoke(nameof(PerfectDefenseResume), combatSetting.PerfectDefenseStuckSec);
                 return;
             }
 
@@ -388,7 +404,12 @@ public class PlayerController : MonoBehaviour, IAttackee
             return;
         }
 
-        MDebug.Log("Got hit! Damage: {0}", damage);
+        PlayerHurt(damage);
+    }
+
+    void PerfectDefenseResume()
+    {
+        stMgr.ChangeUserStatus(PlayerStatus.DEFENSE);
     }
     #endregion
 }

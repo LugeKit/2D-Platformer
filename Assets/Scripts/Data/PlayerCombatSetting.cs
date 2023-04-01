@@ -18,6 +18,11 @@ public class PlayerCombatSetting: ScriptableObject
     [Header("Defense")]
     public bool EnableDefense;
     public float PerfectDefenseWindowSec;
+    public float PerfectDefenseStuckSec;
+
+    [Space(20)]
+    [Header("Hurt")]
+    public float HurtRecoverDelaySec;
 }
 
 [System.Serializable]

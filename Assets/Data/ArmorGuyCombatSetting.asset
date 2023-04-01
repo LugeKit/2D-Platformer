@@ -32,3 +32,5 @@ MonoBehaviour:
     EndAttackDelaySec: 0.3
   EnableDefense: 1
   PerfectDefenseWindowSec: 0.3
+  PerfectDefenseStuckSec: 0.15
+  HurtRecoverDelaySec: 0.1

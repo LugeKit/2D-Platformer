@@ -39,5 +39,7 @@ public enum PlayerStatus
     WALL_HANGING,
     DODGE,
     ATTACK,
-    DEFENSE
+    DEFENSE,
+    PERFECT_DEFENSE,
+    HURT
 }
