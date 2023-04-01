@@ -30,3 +30,5 @@ MonoBehaviour:
     HitboxDelaySec: 0
     NextAttackDelaySec: 0
     EndAttackDelaySec: 0.3
+  EnableDefense: 1
+  PerfectDefenseWindowSec: 0.5

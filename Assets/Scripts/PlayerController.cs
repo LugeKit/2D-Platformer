@@ -9,6 +9,7 @@ public class PlayerController : MonoBehaviour
         public bool jump;
         public bool dodge;
         public bool attack;
+        public bool defense;
     }
 
     public enum CollisionType
@@ -45,6 +46,9 @@ public class PlayerController : MonoBehaviour
     Coroutine resumeFromAtk;
     int attackIndex = -1;
     float curAtkBeginTime = 0;
+
+    // defense related
+    float startDefenseTime;
 
     #endregion
 
@@ -97,6 +101,7 @@ public class PlayerController : MonoBehaviour
         input.jump = Input.GetKeyDown(KeyCode.Space);
         input.dodge = Input.GetKeyDown(KeyCode.LeftShift);
         input.attack = Input.GetKeyDown(KeyCode.J);
+        input.defense = Input.GetKey(KeyCode.K);
     }
 
     void DoCollisionCheck()
@@ -109,7 +114,7 @@ public class PlayerController : MonoBehaviour
     {
         var nextStatus = ust;
 
-        if (ust == PlayerStatus.DODGE || ust == PlayerStatus.ATTACK)
+        if (ust == PlayerStatus.DODGE || ust == PlayerStatus.ATTACK || ust == PlayerStatus.DEFENSE)
             // these states is changed by input or event, not by velocity or collide
             nextStatus = ust;
         else if (IsGrounded() && (IsRunningTowardsWall() || rb.velocity.x != 0))
@@ -128,12 +133,14 @@ public class PlayerController : MonoBehaviour
     void UpdateTimer()
     {
         curAtkBeginTime += Time.deltaTime;
-        // coyote time
+
+        if (ust == PlayerStatus.DEFENSE)
+            startDefenseTime += Time.deltaTime;
+
         coyoteTime -= Time.deltaTime;
         if (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING)
             coyoteTime = movementSetting.CoyoteTime;
 
-        // jump buffer time
         lastPressedJumpTime -= Time.deltaTime;
         if (input.jump)
             lastPressedJumpTime = movementSetting.JumpBufferTime;
@@ -141,13 +148,17 @@ public class PlayerController : MonoBehaviour
 
     void PerformAction()
     {
+        // Change status when defense holding up. Maybe some problems here? If works just let it be.
+        if (ust == PlayerStatus.DEFENSE && !input.defense)
+            stMgr.ChangeUserStatus(PlayerStatus.IDLE);
+
         if (CanAttack())
         {
             var nextAtk = ProceedToNextAtk();
 
             if (nextAtk != null)
             {
-                // TODO@k1 this should check delay
+                // TODO@k1 this should check delay. Now the hitbox appears when the player hits attack instantly, which is not good.
                 PlayerAttackHitCheck(nextAtk);
 
                 curAtkBeginTime = 0;
@@ -155,6 +166,12 @@ public class PlayerController : MonoBehaviour
                 stMgr.TriigerNextAttack(); // for animation transition
                 SetAttackResume(StartCoroutine(AttackResume(nextAtk.EndAttackDelaySec)));
             }
+        }
+
+        if (CanDefense())
+        {
+            startDefenseTime = 0;
+            stMgr.ChangeUserStatus(PlayerStatus.DEFENSE);
         }
 
         if (CanDodge())
@@ -265,8 +282,13 @@ public class PlayerController : MonoBehaviour
 
     bool CanAttack()
     {
-        return input.attack
+        return input.attack && combatSetting.EnableAttack
             && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING || ust == PlayerStatus.ATTACK);
+    }
+
+    bool CanDefense()
+    {
+        return input.defense && combatSetting.EnableDefense && (ust == PlayerStatus.IDLE || ust == PlayerStatus.RUNNING);
     }
 
     AttackElement ProceedToNextAtk()

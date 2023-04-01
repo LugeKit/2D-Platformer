@@ -13,6 +13,11 @@ public class PlayerCombatSetting: ScriptableObject
     public bool EnableAttack;
     public LayerMask EnemyLayer;
     public AttackElement[] Attacks;
+
+    [Space(20)]
+    [Header("Defense")]
+    public bool EnableDefense;
+    public float PerfectDefenseWindowSec;
 }
 
 [System.Serializable]

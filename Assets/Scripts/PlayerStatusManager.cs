@@ -33,5 +33,6 @@ public enum PlayerStatus
     DOUBLE_JUMPING,
     WALL_HANGING,
     DODGE,
-    ATTACK
+    ATTACK,
+    DEFENSE
 }
