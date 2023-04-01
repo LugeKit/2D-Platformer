@@ -20,7 +20,7 @@ MonoBehaviour:
   JumpForce: 18
   CoyoteTime: 0.3
   JumpBufferTime: 0.2
-  EnableDoubleJump: 1
+  EnableDoubleJump: 0
   DoubleJumpForce: 16
   EnableWallJump: 0
   WallJumpForce: {x: 0, y: 0}

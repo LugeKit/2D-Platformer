@@ -22,6 +22,11 @@ public class PlayerStatusManager : MonoBehaviour
         playerAnim.SetTrigger("triggerAttack");
     }
 
+    public void TriggerPerfectDefense()
+    {
+        playerAnim.SetTrigger("triggerPerfectDefense");
+    }
+
 
 }
 public enum PlayerStatus

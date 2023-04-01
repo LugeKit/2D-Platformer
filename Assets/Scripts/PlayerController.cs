@@ -1,7 +1,7 @@
 using UnityEngine;
 using System.Collections;
 
-public class PlayerController : MonoBehaviour
+public class PlayerController : MonoBehaviour, IAttackee
 {
     class UserInput
     {
@@ -372,6 +372,11 @@ public class PlayerController : MonoBehaviour
 
         return res;
 
+    }
+
+    public void Hit(float damage)
+    {
+        MDebug.Log("Got hit! Damage: {0}", damage);
     }
     #endregion
 }
